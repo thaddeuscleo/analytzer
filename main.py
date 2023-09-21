@@ -8,6 +8,8 @@ from blazeface import FaceExtractor, BlazeFace, VideoReader
 from architectures import fornet,weights
 from isplutils import utils
 
+from matplotlib import pyplot as plt
+
 net_model = 'EfficientNetAutoAttB4'
 train_db = 'DFDC'
 
@@ -35,22 +37,41 @@ def Video_Model(video):
     face_tensor = torch.stack( [ transf(image=frame['faces'][0])['image'] for frame in res if len(frame['faces'])] )
     with torch.no_grad():
         faces_real_pred = net(face_tensor.to(device)).cpu().numpy().flatten()
-    return 'Average score for Fakeness video: {:.4f}'.format(expit(faces_real_pred.mean()))
+    
+    frames = [f['frame_idx'] for f in res if len(f['faces'])]
+    fakeness = expit(faces_real_pred)
+
+    plt.figure(figsize=(12, 6))
+    plt.bar(frames, fakeness, width=2, color='royalblue')
+    plt.xlabel('Frames')
+    plt.ylabel('Fakeness (0 to 1)')
+    plt.title('Fake Data on Each Frame')
+    plt.ylim(0, 1)
+    plt.xticks(frames, rotation=45)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+
+    chart_filename = "line_chart.png"
+    plt.savefig(chart_filename)
+    plt.close()
+
+    return 'Average score for Fakeness video: {:.4f}'.format(expit(faces_real_pred.mean())), chart_filename
 
 
 def verify_deep_fake_video(video):
     res = Video_Model(video)
-    verification_result = res
-    return verification_result
+    verification_result, filename = res
+    return verification_result, filename
     
 
 iface = gr.Interface(
     fn=verify_deep_fake_video,
     inputs="video",
-    outputs="text",
+    outputs=["text", "image"],
     title="Deep Fake Video Verification",
     description="Upload a video for deep fake verification.",
-    capture_session=True  # Allows capturing the video for processing
+    capture_session=True,  # Allows capturing the video for processing
+    live=False
 )
 
 
