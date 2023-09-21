@@ -1,9 +1,7 @@
 import gradio as gr
-import os
 
 import torch
 from torch.utils.model_zoo import load_url
-import matplotlib.pyplot as plt
 from scipy.special import expit
 
 from blazeface import FaceExtractor, BlazeFace, VideoReader
@@ -25,18 +23,35 @@ net.load_state_dict(load_url(model_url,map_location=device,check_hash=True))
 transf = utils.get_transformer(face_policy, face_size, net.get_normalizer(), train=False)
 
 facedet = BlazeFace().to(device)
-facedet.load_weights("../blazeface/blazeface.pth")
-facedet.load_anchors("../blazeface/anchors.npy")
+facedet.load_weights("./blazeface/blazeface.pth")
+facedet.load_anchors("./blazeface/anchors.npy")
 videoreader = VideoReader(verbose=False)
 video_read_fn = lambda x: videoreader.read_frames(x, num_frames=frames_per_video)
 face_extractor = FaceExtractor(video_read_fn=video_read_fn,facedet=facedet)
 
 
-def video_identity(video):
-    return video
+def Video_Model(video):
+    res = face_extractor.process_video(video)
+    face_tensor = torch.stack( [ transf(image=frame['faces'][0])['image'] for frame in res if len(frame['faces'])] )
+    with torch.no_grad():
+        faces_real_pred = net(face_tensor.to(device)).cpu().numpy().flatten()
+    return 'Average score for Fakeness video: {:.4f}'.format(expit(faces_real_pred.mean()))
 
-demo = gr.Interface(video_identity, 
-                    gr.Video(), 
-                    "playable_video")
+
+def verify_deep_fake_video(video):
+    res = Video_Model(video)
+    verification_result = res
+    return verification_result
     
-demo.launch()
+
+iface = gr.Interface(
+    fn=verify_deep_fake_video,
+    inputs="video",
+    outputs="text",
+    title="Deep Fake Video Verification",
+    description="Upload a video for deep fake verification.",
+    capture_session=True  # Allows capturing the video for processing
+)
+
+
+iface.launch()
