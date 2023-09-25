@@ -1,12 +1,18 @@
 import gradio as gr
+import io
 
 import torch
+import torch.nn.functional as F
 from torch.utils.model_zoo import load_url
 from scipy.special import expit
 
 from blazeface import FaceExtractor, BlazeFace, VideoReader
 from architectures import fornet, weights
 from isplutils import utils
+
+import librosa
+import torchaudio
+from tortoise.models.classifier import AudioMiniEncoderWithClassifierHead
 
 from matplotlib import pyplot as plt
 
@@ -96,8 +102,42 @@ def verify_deep_fake_video(video):
     return verification_result, filename
 
 
-def verify_fake_voice(suspect_sample, calibration_sample):
-    return f""
+def load_audio(audiopath, sampling_rate=22000):
+    audio, lsr = librosa.load(audiopath, sr=sampling_rate)
+    audio = torch.FloatTensor(audio)
+
+    if lsr != sampling_rate:
+        audio = torchaudio.functional.resample(audio, lsr, sampling_rate)
+
+    if torch.any(audio > 2) or not torch.any(audio < 0):
+        print(f"Error with audio data. Max={audio.max()} min={audio.min()}")
+    audio.clip_(-1, 1)
+
+    return audio.unsqueeze(0)
+
+
+
+def classify_audio_clip(clip):
+    """
+    Returns whether or not the classifier thinks the given clip came from AI generation.
+    :param clip: torch tensor containing audio waveform data (get it from load_audio)
+    :return: The probability of the audio clip being AI-generated.
+    """
+    classifier = AudioMiniEncoderWithClassifierHead(2, spec_dim=1, embedding_dim=512, depth=5, downsample_factor=4,
+                                                    resnet_blocks=2, attn_blocks=4, num_attn_heads=4, base_channels=32,
+                                                    dropout=0, kernel_size=5, distribute_zero_label=False)
+    state_dict = torch.load('classifier.pth', map_location=torch.device('cpu'))
+    classifier.load_state_dict(state_dict)
+    clip = clip.cpu().unsqueeze(0)
+    results = F.softmax(classifier(clip), dim=-1)
+    return results[0][0]
+
+
+def verify_fake_voice(suspect_sample):
+    clip = load_audio(suspect_sample)
+    res = classify_audio_clip(clip)
+    res = res.item()
+    return f"The uploaded audio is {res * 100:.2f} % likely to be AI Generated."
 
 
 def verify_fake_face(audio):
@@ -122,11 +162,10 @@ deep_fake_detection_iface = gr.Interface(
 
 with gr.Blocks() as voice_fake_detection_iface:
     gr.Markdown("## Fake Audio Analysis")
-    suspect_audio_sample = gr.Audio(label="Suspect Audio Sample");
-    calibration_audio_sample = gr.Audio(label="Calibration Audio Sample");
+    suspect_audio_sample = gr.Audio(label="Suspect Audio Sample", type="filepath");
     text_output = gr.Textbox(label="Audio Fakeness Result")
     check_audio_btn = gr.Button("Submit");
-    check_audio_btn.click(verify_fake_voice, inputs=[suspect_audio_sample, calibration_audio_sample], outputs=text_output)
+    check_audio_btn.click(verify_fake_voice, inputs=[suspect_audio_sample], outputs=text_output)
 
 fake_face_detection_iface = gr.Interface(
     api_name="fake_face_detection_iface",
