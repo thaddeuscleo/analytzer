@@ -104,6 +104,9 @@ def verify_deep_fake_video(video):
 # Extract audio features
 def extract_audio_features(audio_file):
     y, sr = librosa.load(audio_file)
+    
+    one_minute_samples = int(60 * sr)
+    y = y[:one_minute_samples]
     segment_duration = sr  # 1 second
     num_segments = len(y) // segment_duration
     chroma_stft_list = []
