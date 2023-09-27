@@ -1,37 +1,47 @@
 import gradio as gr
 import io
-
 import torch
-import torch.nn.functional as F
 from torch.utils.model_zoo import load_url
 from scipy.special import expit
-
+from matplotlib import pyplot as plt
 from blazeface import FaceExtractor, BlazeFace, VideoReader
 from architectures import fornet, weights
 from isplutils import utils
-
 import librosa
-import torchaudio
-from tortoise.models.classifier import AudioMiniEncoderWithClassifierHead
+import pandas as pd
+import numpy as np
+from sklearn import preprocessing
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    matthews_corrcoef,
+    roc_auc_score,
+)
 
-from matplotlib import pyplot as plt
-
+# Constants
 net_model = "EfficientNetAutoAttB4"
 train_db = "DFDC"
-
-device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 face_policy = "scale"
 face_size = 224
 frames_per_video = 32
 
 
+# Load deep fake neural network
 def load_deep_fake_neural_network(net_model, train_db, device):
-    model_url = weights.weight_url["{:s}_{:s}".format(net_model, train_db)]
+    model_url = weights.weight_url[f"{net_model}_{train_db}"]
     net = getattr(fornet, net_model)().eval().to(device)
     net.load_state_dict(load_url(model_url, map_location=device, check_hash=True))
     return net
 
 
+net = load_deep_fake_neural_network(net_model, train_db, device)
+
+
+# Load face extractor
 def load_face_extractor(device, frames_per_video):
     facedet = BlazeFace().to(device)
     facedet.load_weights("./blazeface/blazeface.pth")
@@ -42,29 +52,17 @@ def load_face_extractor(device, frames_per_video):
     return face_extractor
 
 
-net = load_deep_fake_neural_network(net_model, train_db, device)
-transf = utils.get_transformer(
-    face_policy, face_size, net.get_normalizer(), train=False
-)
 face_extractor = load_face_extractor(device, frames_per_video)
 
 
-def Video_Model(video):
-    res, faces_real_pred = predict_deep_fake_video(video)
-
-    chart_filename = create_fakeness_plot(res, faces_real_pred)
-    result = "Average score for Fakeness video: {:.4f}".format(
-        expit(faces_real_pred.mean())
-    )
-
-    return result, chart_filename
-
-
+# Predict deep fake video
 def predict_deep_fake_video(video):
     res = face_extractor.process_video(video)
     face_tensor = torch.stack(
         [
-            transf(image=frame["faces"][0])["image"]
+            utils.get_transformer(
+                face_policy, face_size, net.get_normalizer(), train=False
+            )(image=frame["faces"][0])["image"]
             for frame in res
             if len(frame["faces"])
         ]
@@ -74,10 +72,8 @@ def predict_deep_fake_video(video):
     return res, faces_real_pred
 
 
+# Create fakeness plot
 def create_fakeness_plot(res, faces_real_pred):
-    """
-    create a plot for showing fakeness confidence on provided frames.
-    """
     frames = [f["frame_idx"] for f in res if len(f["faces"])]
     fakeness = expit(faces_real_pred)
 
@@ -97,59 +93,143 @@ def create_fakeness_plot(res, faces_real_pred):
     return chart_filename
 
 
+# Verify deep fake video
 def verify_deep_fake_video(video):
-    verification_result, filename = Video_Model(video)
-    return verification_result, filename
+    res, faces_real_pred = predict_deep_fake_video(video)
+    chart_filename = create_fakeness_plot(res, faces_real_pred)
+    result = f"Average score for Fakeness video: {expit(faces_real_pred.mean()):.4f}"
+    return result, chart_filename
 
 
-def load_audio(audiopath, sampling_rate=22000):
-    audio, lsr = librosa.load(audiopath, sr=sampling_rate)
-    audio = torch.FloatTensor(audio)
+# Extract audio features
+def extract_audio_features(audio_file):
+    y, sr = librosa.load(audio_file)
+    segment_duration = sr  # 1 second
+    num_segments = len(y) // segment_duration
+    chroma_stft_list = []
+    rms_list = []
+    spectral_centroid_list = []
+    spectral_bandwidth_list = []
+    rolloff_list = []
+    zero_crossing_rate_list = []
+    mfcc_matrix = np.zeros((num_segments, 20))
 
-    if lsr != sampling_rate:
-        audio = torchaudio.functional.resample(audio, lsr, sampling_rate)
+    for i in range(num_segments):
+        start = i * segment_duration
+        end = (i + 1) * segment_duration
+        segment = y[start:end]
+        chroma_stft = np.mean(librosa.feature.chroma_stft(y=segment, sr=sr))
+        rms = np.mean(librosa.feature.rms(y=segment))
+        spectral_centroid = np.mean(librosa.feature.spectral_centroid(y=segment, sr=sr))
+        spectral_bandwidth = np.mean(
+            librosa.feature.spectral_bandwidth(y=segment, sr=sr)
+        )
+        rolloff = np.mean(librosa.feature.spectral_rolloff(y=segment, sr=sr))
+        zero_crossing_rate = np.mean(librosa.feature.zero_crossing_rate(y=segment))
+        mfcc = np.mean(librosa.feature.mfcc(y=segment, sr=sr, n_mfcc=20), axis=1)
+        chroma_stft_list.append(chroma_stft)
+        rms_list.append(rms)
+        spectral_centroid_list.append(spectral_centroid)
+        spectral_bandwidth_list.append(spectral_bandwidth)
+        rolloff_list.append(rolloff)
+        zero_crossing_rate_list.append(zero_crossing_rate)
+        mfcc_matrix[i, :] = mfcc
 
-    if torch.any(audio > 2) or not torch.any(audio < 0):
-        print(f"Error with audio data. Max={audio.max()} min={audio.min()}")
-    audio.clip_(-1, 1)
+    feature_dict = {
+        "Chroma_STFT": chroma_stft_list,
+        "RMS": rms_list,
+        "Spectral_Centroid": spectral_centroid_list,
+        "Spectral_Bandwidth": spectral_bandwidth_list,
+        "Spectral_Rolloff": rolloff_list,
+        "Zero_Crossing_Rate": zero_crossing_rate_list,
+    }
+    for i in range(20):
+        feature_dict[f"MFCC_{i + 1}"] = mfcc_matrix[:, i]
 
-    return audio.unsqueeze(0)
-
-
-
-def classify_audio_clip(clip):
-    """
-    Returns whether or not the classifier thinks the given clip came from AI generation.
-    :param clip: torch tensor containing audio waveform data (get it from load_audio)
-    :return: The probability of the audio clip being AI-generated.
-    """
-    classifier = AudioMiniEncoderWithClassifierHead(2, spec_dim=1, embedding_dim=512, depth=5, downsample_factor=4,
-                                                    resnet_blocks=2, attn_blocks=4, num_attn_heads=4, base_channels=32,
-                                                    dropout=0, kernel_size=5, distribute_zero_label=False)
-    state_dict = torch.load('classifier.pth', map_location=torch.device('cpu'))
-    classifier.load_state_dict(state_dict)
-    clip = clip.cpu().unsqueeze(0)
-    results = F.softmax(classifier(clip), dim=-1)
-    return results[0][0]
+    df = pd.DataFrame(feature_dict)
+    return df
 
 
-def verify_fake_voice(suspect_sample):
-    clip = load_audio(suspect_sample)
-    res = classify_audio_clip(clip)
-    res = res.item()
-    return f"The uploaded audio is {res * 100:.2f} % likely to be AI Generated."
+# Verify fake voice
+def verify_fake_voice(real_audio_sample, suspect_sample):
+    real_df = extract_audio_features(real_audio_sample)
+    fake_df = extract_audio_features(suspect_sample)
+    real_df["label"] = "REAL"
+    fake_df["label"] = "FAKE"
+    num_samples_per_class = min(len(real_df), len(fake_df))
+    balanced_real_df = real_df.sample(n=num_samples_per_class, random_state=42)
+    balanced_fake_df = fake_df.sample(n=num_samples_per_class, random_state=42)
+    balanced_all_df = pd.concat([balanced_real_df, balanced_fake_df], axis=0)
+    balanced_all_df = balanced_all_df.sample(frac=1, random_state=42).reset_index(
+        drop=True
+    )
+    X = balanced_all_df.iloc[:, :-1]
+    y = balanced_all_df.iloc[:, -1]
+
+    lb = preprocessing.LabelBinarizer()
+    lb.fit(y)
+    y = lb.transform(y)
+    y = y.ravel()
+
+    model = RandomForestClassifier(n_estimators=50, random_state=1)
+
+    from sklearn.model_selection import KFold
+
+    kf = KFold(n_splits=5, shuffle=True, random_state=1)
+
+    acc_score = []
+    prec_score = []
+    rec_score = []
+    f1s = []
+    MCCs = []
+    ROCareas = []
+
+    for train_index, test_index in kf.split(X):
+        X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
+        y_train, y_test = y[train_index], y[test_index]
+        model.fit(X_train, y_train)
+        pred_values = model.predict(X_test)
+        acc = accuracy_score(pred_values, y_test)
+        acc_score.append(acc)
+        prec = precision_score(y_test, pred_values, average="binary", pos_label=1)
+        prec_score.append(prec)
+        rec = recall_score(y_test, pred_values, average="binary", pos_label=1)
+        rec_score.append(rec)
+        f1 = f1_score(y_test, pred_values, average="binary", pos_label=1)
+        f1s.append(f1)
+        mcc = matthews_corrcoef(y_test, pred_values)
+        MCCs.append(mcc)
+        roc = roc_auc_score(y_test, pred_values)
+        ROCareas.append(roc)
+
+    accuracy = (
+        f"{round(np.mean(acc_score) * 100, 3)}% ({round(np.std(acc_score) * 100, 3)})"
+    )
+    precision = f"{round(np.mean(prec_score), 3)} ({round(np.std(prec_score), 3)})"
+    recall = f"{round(np.mean(rec_score), 3)} ({round(np.std(rec_score), 3)})"
+    f1_score_res = f"{round(np.mean(f1s), 3)} ({round(np.std(f1s), 3)})"
+    mcc_res = f"{round(np.mean(MCCs), 3)} ({round(np.std(MCCs), 3)})"
+    roc_auc = f"{round(np.mean(ROCareas), 3)} ({round(np.std(ROCareas), 3)})"
+
+    global audio_model
+    audio_model = model
+
+    return accuracy, precision, recall, f1_score_res, mcc_res, roc_auc
 
 
+# Analyze Audio using model
+def analyze_audio(audio):
+    df = extract_audio_features(audio)
+    res = audio_model.predict(df)
+    return f"{res.mean() * 100} %"
+
+
+# Fake face detection
 def verify_fake_face(audio):
-    return f""
+    return ""
 
 
-"""
-# --------
-# |  UI  |
-# -------- 
-"""
-
+# UI Interfaces
 deep_fake_detection_iface = gr.Interface(
     api_name="deep_fake_detection_iface",
     fn=verify_deep_fake_video,
@@ -160,12 +240,56 @@ deep_fake_detection_iface = gr.Interface(
     live=False,
 )
 
-with gr.Blocks() as voice_fake_detection_iface:
-    gr.Markdown("## Fake Audio Analysis")
-    suspect_audio_sample = gr.Audio(label="Suspect Audio Sample", type="filepath");
-    text_output = gr.Textbox(label="Audio Fakeness Result")
-    check_audio_btn = gr.Button("Submit");
-    check_audio_btn.click(verify_fake_voice, inputs=[suspect_audio_sample], outputs=text_output)
+with gr.Blocks() as fake_voice_detection_iface:
+    gr.Markdown(
+        "This module is used for detecting fake speech/ fake voice using ML Models."
+    )
+    with gr.Accordion("1. Train", open=True):
+        gr.Markdown("## Train Fake Audio Model Analysis")
+        with gr.Row():
+            with gr.Column():
+                with gr.Group():
+                    real_audio_sample = gr.Audio(
+                        label="Real Audio Sample", type="filepath"
+                    )
+                    fake_audio_sample = gr.Audio(
+                        label="Fake Audio Sample", type="filepath"
+                    )
+                train_audio_btn = gr.Button(value="Train", variant="primary")
+            with gr.Group():
+                accuracy_output = gr.Textbox(label="Accuracy")
+                precision_output = gr.Textbox(label="Precision")
+                recall_output = gr.Textbox(label="Recall")
+                f1_score_output = gr.Textbox(label="F1-Score")
+                mcc_output = gr.Textbox(label="MCC")
+                roc_auc_output = gr.Textbox(label="ROC AUC")
+            # Event Handling
+            train_audio_btn.click(
+                verify_fake_voice,
+                inputs=[real_audio_sample, fake_audio_sample],
+                outputs=[
+                    accuracy_output,
+                    precision_output,
+                    recall_output,
+                    f1_score_output,
+                    mcc_output,
+                    roc_auc_output,
+                ],
+            )
+    with gr.Accordion("2. Analyze", open=False):
+        gr.Markdown("## 2. Analyze Audio Using Trained Model")
+        with gr.Row():
+            with gr.Column():
+                suspect_audio_sample = gr.Audio(
+                    label="Suspect Audio Sample", type="filepath"
+                )
+                analyze_audio_btn = gr.Button(value="Analyze", variant="primary")
+            with gr.Column():
+                fakeness_output = gr.Textbox(label="Realness")
+    analyze_audio_btn.click(
+        analyze_audio, inputs=[suspect_audio_sample], outputs=[fakeness_output]
+    )
+
 
 fake_face_detection_iface = gr.Interface(
     api_name="fake_face_detection_iface",
@@ -173,19 +297,17 @@ fake_face_detection_iface = gr.Interface(
     inputs="image",
     outputs=["text"],
     title="Fake Face Analysis",
-    description="Upload a Image for fake audio analysis.",
+    description="Upload an image for fake audio analysis.",
     live=False,
 )
 
 interfaces = [
     deep_fake_detection_iface,
-    voice_fake_detection_iface,
+    fake_voice_detection_iface,
     fake_face_detection_iface,
 ]
 
 tab_names = ["Deep Fake Video Detection", "Fake Voice Detection", "Fake Face Detection"]
 
-
-
-app = gr.TabbedInterface(interfaces, tab_names)
-app.launch()
+app = gr.TabbedInterface(interfaces, tab_names, title="🎭 Analytzer")
+app.launch(server_name="0.0.0.0", server_port=7860)

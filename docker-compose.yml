@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  app:
+    container_name: "analytzer-app"
+    build:
+      context: .
+      dockerfile: Dockerfile
+      no_cache: true
+      tags:
+        - "analytzer-app:1.0.0"
+    ports:
+      - 7860:7860
+    
