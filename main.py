@@ -234,7 +234,7 @@ def verify_fake_face(audio):
 with gr.Blocks() as introduction_iface:
     gr.Markdown(
         """
-    ## Welcone to Analytzer
+    ## Welcome to Analytzer
     
     In an era where digital manipulation has reached unprecedented levels, 
     discerning the real from the fabricated has become an increasingly challenging task. 
