@@ -322,5 +322,5 @@ interfaces = [
 
 tab_names = ["Deep Fake Video Detection", "Fake Voice Detection", "Fake Face Detection"]
 
-app = gr.TabbedInterface(interfaces, tab_names, title="🎭 Analytzer")
-app.launch(server_name="0.0.0.0", server_port=7860)
+demo = gr.TabbedInterface(interfaces, tab_names, title="🎭 Analytzer")
+demo.launch(server_name="0.0.0.0", server_port=7860)
