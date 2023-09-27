@@ -231,6 +231,25 @@ def verify_fake_face(audio):
     return ""
 
 
+with gr.Blocks() as introduction_iface:
+    gr.Markdown("""
+    ## Welcone to Analytzer
+    
+    In an era where digital manipulation has reached unprecedented levels, 
+    discerning the real from the fabricated has become an increasingly challenging task. 
+    Enter Analytzer, your comprehensive solution to combat the proliferation of 
+    deep fakes and fraudulent content. Analytzer is a cutting-edge application that 
+    equips you with the tools to safeguard your digital space.
+
+    With three powerful modules at your disposal, Analytzer empowers you to:
+    1. **Deep Fake Video Detection**: Unmask the most sophisticated deep fake videos and safeguard the integrity of visual content. Our state-of-the-art technology scrutinizes every pixel, ensuring that authenticity prevails.
+    2. **Fake Voice/Speech Detection**: Hear the truth in every sound. Analytzer's advanced algorithms dissect audio recordings, exposing deceptive voice manipulations and ensuring that genuine voices are heard.
+    3. **Deep Fake Face Image Detection**: Protect the visual identity of individuals and organizations. Analytzer's facial recognition prowess pierces through deceptive images, preserving the sanctity of digital profiles.
+
+    In a world where authenticity matters more than ever, Analytzer is your vigilant guardian, enabling you to navigate the digital landscape with confidence. Welcome to the future of content integrity. Welcome to Analytzer.        
+    """)
+
+
 # UI Interfaces
 with gr.Blocks() as deep_fake_video_detection_iface:
     gr.Markdown(
@@ -332,12 +351,14 @@ with gr.Blocks() as deep_fake_face_image_detection_iface:
 
 
 interfaces = [
+    introduction_iface,
     deep_fake_video_detection_iface,
     fake_voice_detection_iface,
     deep_fake_face_image_detection_iface,
 ]
 
 tab_names = [
+    "* Introduction",
     "A. Deep Fake Video Detection",
     "B. Fake Voice/Speech Detection",
     "C. Deep Fake Face Image Detection",
