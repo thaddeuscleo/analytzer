@@ -11,6 +11,7 @@ import librosa
 import pandas as pd
 import numpy as np
 from sklearn import preprocessing
+from sklearn.model_selection import KFold
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
     accuracy_score,
@@ -175,8 +176,6 @@ def verify_fake_voice(real_audio_sample, suspect_sample):
     y = y.ravel()
 
     model = RandomForestClassifier(n_estimators=50, random_state=1)
-
-    from sklearn.model_selection import KFold
 
     kf = KFold(n_splits=5, shuffle=True, random_state=1)
 
