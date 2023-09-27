@@ -232,7 +232,8 @@ def verify_fake_face(audio):
 
 
 with gr.Blocks() as introduction_iface:
-    gr.Markdown("""
+    gr.Markdown(
+        """
     ## Welcone to Analytzer
     
     In an era where digital manipulation has reached unprecedented levels, 
@@ -247,7 +248,8 @@ with gr.Blocks() as introduction_iface:
     3. **Deep Fake Face Image Detection**: Protect the visual identity of individuals and organizations. Analytzer's facial recognition prowess pierces through deceptive images, preserving the sanctity of digital profiles.
 
     In a world where authenticity matters more than ever, Analytzer is your vigilant guardian, enabling you to navigate the digital landscape with confidence. Welcome to the future of content integrity. Welcome to Analytzer.        
-    """)
+    """
+    )
 
 
 # UI Interfaces
