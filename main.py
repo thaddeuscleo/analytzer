@@ -369,7 +369,9 @@ tab_names = [
 demo = gr.TabbedInterface(
     interfaces,
     tab_names,
-    title="🎭 Analytzer",
+    title="🎭",
     css="footer {visibility: hidden}",
 )
-demo.launch(server_name="0.0.0.0", server_port=7860, show_api=False)
+demo.launch(
+    server_name="0.0.0.0", server_port=7860, show_api=False, auth=["admin", "admin"]
+)
