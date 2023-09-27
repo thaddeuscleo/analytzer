@@ -104,7 +104,7 @@ def verify_deep_fake_video(video):
 # Extract audio features
 def extract_audio_features(audio_file):
     y, sr = librosa.load(audio_file)
-    
+
     one_minute_samples = int(60 * sr)
     y = y[:one_minute_samples]
     segment_duration = sr  # 1 second
@@ -233,14 +233,23 @@ def verify_fake_face(audio):
 
 
 # UI Interfaces
-deep_fake_detection_iface = gr.Interface(
-    api_name="deep_fake_detection_iface",
-    fn=verify_deep_fake_video,
-    inputs="video",
-    outputs=["text", "image"],
-    description="Upload a video for deep fake analysis.",
-    live=False,
-)
+with gr.Blocks() as deep_fake_video_detection_iface:
+    gr.Markdown(
+        "This module is used for detecting video for deep fake using DeepLearning Models."
+    )
+    with gr.Row():
+        with gr.Column():
+            suspect_video_input = gr.Video(label="Suspect Video Input")
+            analyze_btn = gr.Button(value="Analyze Video", variant="primary")
+        with gr.Group():
+            fakeness_plot = gr.Image(label="Fakeness On Frames", interactive=True)
+            fakeness_result = gr.Text(label="Video Fakeness")
+            gr.ClearButton([suspect_video_input, fakeness_result, fakeness_plot])
+        analyze_btn.click(
+            verify_deep_fake_video,
+            inputs=[suspect_video_input],
+            outputs=[fakeness_result, fakeness_plot],
+        )
 
 with gr.Blocks() as fake_voice_detection_iface:
     gr.Markdown(
@@ -305,22 +314,40 @@ with gr.Blocks() as fake_voice_detection_iface:
     )
 
 
-fake_face_detection_iface = gr.Interface(
-    api_name="fake_face_detection_iface",
-    fn=verify_fake_face,
-    inputs="image",
-    outputs=["text"],
-    description="Upload an image for fake audio analysis.",
-    live=False,
-)
+with gr.Blocks() as deep_fake_face_image_detection_iface:
+    gr.Markdown(
+        "This module is used for detecting video for deep fake using DeepLearning Models."
+    )
+    with gr.Row():
+        with gr.Column():
+            suspect_image_input = gr.Image(label="Suspect Image Input")
+            analyze_btn = gr.Button(value="Analyze Image", variant="primary")
+        with gr.Column():
+            fakeness_result = gr.Text(label="Image Fakeness")
+            gr.ClearButton([suspect_video_input, fakeness_result])
+        analyze_btn.click(
+            verify_deep_fake_video,
+            inputs=[suspect_video_input],
+            outputs=[fakeness_result],
+        )
+
 
 interfaces = [
-    deep_fake_detection_iface,
+    deep_fake_video_detection_iface,
     fake_voice_detection_iface,
-    fake_face_detection_iface,
+    deep_fake_face_image_detection_iface,
 ]
 
-tab_names = ["Deep Fake Video Detection", "Fake Voice Detection", "Fake Face Detection"]
+tab_names = [
+    "A. Deep Fake Video Detection",
+    "B. Fake Voice/Speech Detection",
+    "C. Deep Fake Face Image Detection",
+]
 
-demo = gr.TabbedInterface(interfaces, tab_names, title="🎭 Analytzer")
-demo.launch(server_name="0.0.0.0", server_port=7860)
+demo = gr.TabbedInterface(
+    interfaces,
+    tab_names,
+    title="🎭 Analytzer",
+    css="footer {visibility: hidden}",
+)
+demo.launch(server_name="0.0.0.0", server_port=7860, show_api=False)
