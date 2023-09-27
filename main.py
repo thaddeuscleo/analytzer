@@ -238,7 +238,6 @@ deep_fake_detection_iface = gr.Interface(
     fn=verify_deep_fake_video,
     inputs="video",
     outputs=["text", "image"],
-    title="Deep Fake Video Analysis",
     description="Upload a video for deep fake analysis.",
     live=False,
 )
@@ -311,7 +310,6 @@ fake_face_detection_iface = gr.Interface(
     fn=verify_fake_face,
     inputs="image",
     outputs=["text"],
-    title="Fake Face Analysis",
     description="Upload an image for fake audio analysis.",
     live=False,
 )
