@@ -263,6 +263,18 @@ with gr.Blocks() as fake_voice_detection_iface:
                 f1_score_output = gr.Textbox(label="F1-Score")
                 mcc_output = gr.Textbox(label="MCC")
                 roc_auc_output = gr.Textbox(label="ROC AUC")
+                gr.ClearButton(
+                    [
+                        real_audio_sample,
+                        fake_audio_sample,
+                        accuracy_output,
+                        precision_output,
+                        recall_output,
+                        f1_score_output,
+                        mcc_output,
+                        roc_auc_output,
+                    ]
+                )
             # Event Handling
             train_audio_btn.click(
                 verify_fake_voice,
