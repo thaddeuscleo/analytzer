@@ -97,7 +97,7 @@ def create_fakeness_plot(res, faces_real_pred):
     fig.canvas.draw()
     rgb = fig.canvas.tostring_rgb()
     width, height = fig.canvas.get_width_height()
-    img = Image.frombytes('RGB', (width, height), rgb)
+    img = Image.frombytes("RGB", (width, height), rgb)
     return img
 
 
@@ -244,147 +244,137 @@ def verify_fake_face(upload_image):
     return f"{faces_pred[0]}"
 
 
-with gr.Blocks() as introduction_iface:
+with gr.Blocks(css="footer {visibility: hidden}", theme=gr.themes.Default()) as demo:
     gr.Markdown(
         """
-    ## Welcome to Analytzer
-    
-    In an era where digital manipulation has reached unprecedented levels, 
-    discerning the real from the fabricated has become an increasingly challenging task. 
-    Enter Analytzer, your comprehensive solution to combat the proliferation of 
-    deep fakes and fraudulent content. Analytzer is a cutting-edge application that 
-    equips you with the tools to safeguard your digital space.
-
-    With three powerful modules at your disposal, Analytzer empowers you to:
-    1. **Deep Fake Video Detection**: Unmask the most sophisticated deep fake videos and safeguard the integrity of visual content. Our state-of-the-art technology scrutinizes every pixel, ensuring that authenticity prevails.
-    2. **Fake Voice/Speech Detection**: Hear the truth in every sound. Analytzer's advanced algorithms dissect audio recordings, exposing deceptive voice manipulations and ensuring that genuine voices are heard.
-    3. **Deep Fake Face Image Detection**: Protect the visual identity of individuals and organizations. Analytzer's facial recognition prowess pierces through deceptive images, preserving the sanctity of digital profiles.
-
-    In a world where authenticity matters more than ever, Analytzer is your vigilant guardian, enabling you to navigate the digital landscape with confidence. Welcome to the future of content integrity. Welcome to Analytzer.        
-    """
+        <img src="http://val.id/wp-content/uploads/2020/07/Logo-valid-small.png" width=200px>
+        """
     )
+    gr.Markdown("## Deep Fake Detection")
+    with gr.Tab("introduction") as introduction_iface:
+        gr.Markdown(
+            """
+        ## Welcome to Analytzer
+        
+        In an era where digital manipulation has reached unprecedented levels, 
+        discerning the real from the fabricated has become an increasingly challenging task. 
+        Enter Analytzer, your comprehensive solution to combat the proliferation of 
+        deep fakes and fraudulent content. Analytzer is a cutting-edge application that 
+        equips you with the tools to safeguard your digital space.
 
+        With three powerful modules at your disposal, Analytzer empowers you to:
+        1. **Deep Fake Video Detection**: Unmask the most sophisticated deep fake videos and safeguard the integrity of visual content. Our state-of-the-art technology scrutinizes every pixel, ensuring that authenticity prevails.
+        2. **Fake Voice/Speech Detection**: Hear the truth in every sound. Analytzer's advanced algorithms dissect audio recordings, exposing deceptive voice manipulations and ensuring that genuine voices are heard.
+        3. **Deep Fake Face Image Detection**: Protect the visual identity of individuals and organizations. Analytzer's facial recognition prowess pierces through deceptive images, preserving the sanctity of digital profiles.
 
-# UI Interfaces
-with gr.Blocks() as deep_fake_video_detection_iface:
-    gr.Markdown(
-        "This module is used for detecting video for deep fake using DeepLearning Models."
-    )
-    with gr.Row():
-        with gr.Column():
-            suspect_video_input = gr.Video(label="Suspect Video Input")
-            analyze_btn = gr.Button(value="Analyze Video", variant="primary")
-        with gr.Group():
-            fakeness_plot = gr.Image(label="Fakeness On Frames", interactive=True)
-            fakeness_result = gr.Text(label="Video Fakeness")
-            gr.ClearButton([suspect_video_input, fakeness_result, fakeness_plot])
-        analyze_btn.click(
-            verify_deep_fake_video,
-            inputs=[suspect_video_input],
-            outputs=[fakeness_result, fakeness_plot],
+        In a world where authenticity matters more than ever, Analytzer is your vigilant guardian, enabling you to navigate the digital landscape with confidence. Welcome to the future of content integrity. Welcome to Analytzer.        
+        """
         )
 
-with gr.Blocks() as fake_voice_detection_iface:
-    gr.Markdown(
-        "This module is used for detecting fake speech/ fake voice using ML Models."
-    )
-    with gr.Accordion("1. Train", open=True):
-        gr.Markdown("## Train Fake Audio Model Analysis")
+    # UI Interfaces
+    with gr.Tab("A. Deep Fake Video Detection") as deep_fake_video_detection_iface:
+        gr.Markdown(
+            "This module is used for detecting video for deep fake using DeepLearning Models."
+        )
         with gr.Row():
             with gr.Column():
-                with gr.Group():
-                    real_audio_sample = gr.Audio(
-                        label="Real Audio Sample", type="filepath"
-                    )
-                    fake_audio_sample = gr.Audio(
-                        label="Fake Audio Sample", type="filepath"
-                    )
-                train_audio_btn = gr.Button(value="Train", variant="primary")
+                suspect_video_input = gr.Video(label="Suspect Video Input")
+                analyze_btn = gr.Button(value="Analyze Video", variant="primary")
             with gr.Group():
-                accuracy_output = gr.Textbox(label="Accuracy")
-                precision_output = gr.Textbox(label="Precision")
-                recall_output = gr.Textbox(label="Recall")
-                f1_score_output = gr.Textbox(label="F1-Score")
-                mcc_output = gr.Textbox(label="MCC")
-                roc_auc_output = gr.Textbox(label="ROC AUC")
-                gr.ClearButton(
-                    [
-                        real_audio_sample,
-                        fake_audio_sample,
+                fakeness_plot = gr.Image(label="Fakeness On Frames", interactive=True)
+                fakeness_result = gr.Text(label="Video Fakeness")
+                gr.ClearButton([suspect_video_input, fakeness_result, fakeness_plot])
+            analyze_btn.click(
+                verify_deep_fake_video,
+                inputs=[suspect_video_input],
+                outputs=[fakeness_result, fakeness_plot],
+            )
+
+    with gr.Tab("B. Fake Voice/Speech Detection") as fake_voice_detection_iface:
+        gr.Markdown(
+            "This module is used for detecting fake speech/ fake voice using ML Models."
+        )
+        with gr.Accordion("1. Train", open=True):
+            gr.Markdown("## Train Fake Audio Model Analysis")
+            with gr.Row():
+                with gr.Column():
+                    with gr.Group():
+                        real_audio_sample = gr.Audio(
+                            label="Real Audio Sample", type="filepath"
+                        )
+                        fake_audio_sample = gr.Audio(
+                            label="Fake Audio Sample", type="filepath"
+                        )
+                    train_audio_btn = gr.Button(value="Train", variant="primary")
+                with gr.Group():
+                    accuracy_output = gr.Textbox(label="Accuracy")
+                    precision_output = gr.Textbox(label="Precision")
+                    recall_output = gr.Textbox(label="Recall")
+                    f1_score_output = gr.Textbox(label="F1-Score")
+                    mcc_output = gr.Textbox(label="MCC")
+                    roc_auc_output = gr.Textbox(label="ROC AUC")
+                    gr.ClearButton(
+                        [
+                            real_audio_sample,
+                            fake_audio_sample,
+                            accuracy_output,
+                            precision_output,
+                            recall_output,
+                            f1_score_output,
+                            mcc_output,
+                            roc_auc_output,
+                        ]
+                    )
+                # Event Handling
+                train_audio_btn.click(
+                    verify_fake_voice,
+                    inputs=[real_audio_sample, fake_audio_sample],
+                    outputs=[
                         accuracy_output,
                         precision_output,
                         recall_output,
                         f1_score_output,
                         mcc_output,
                         roc_auc_output,
-                    ]
+                    ],
                 )
-            # Event Handling
-            train_audio_btn.click(
-                verify_fake_voice,
-                inputs=[real_audio_sample, fake_audio_sample],
-                outputs=[
-                    accuracy_output,
-                    precision_output,
-                    recall_output,
-                    f1_score_output,
-                    mcc_output,
-                    roc_auc_output,
-                ],
-            )
-    with gr.Accordion("2. Analyze", open=False):
-        gr.Markdown("## 2. Analyze Audio Using Trained Model")
-        with gr.Row():
-            with gr.Column():
-                suspect_audio_sample = gr.Audio(
-                    label="Suspect Audio Sample", type="filepath"
-                )
-                analyze_audio_btn = gr.Button(value="Analyze", variant="primary")
-            with gr.Column():
-                fakeness_output = gr.Textbox(label="Realness")
-    analyze_audio_btn.click(
-        analyze_audio, inputs=[suspect_audio_sample], outputs=[fakeness_output]
-    )
-
-
-with gr.Blocks() as deep_fake_face_image_detection_iface:
-    gr.Markdown(
-        "This module is used for detecting video for deep fake using DeepLearning Models."
-    )
-    with gr.Row():
-        with gr.Column():
-            suspect_image_input = gr.Image(label="Suspect Image Input", type="filepath")
-            analyze_btn = gr.Button(value="Analyze Image", variant="primary")
-        with gr.Column():
-            fakeness_result = gr.Text(label="Image Fakeness")
-            gr.ClearButton([suspect_image_input, fakeness_result])
-        analyze_btn.click(
-            verify_fake_face,
-            inputs=[suspect_image_input],
-            outputs=[fakeness_result],
+        with gr.Accordion("2. Analyze", open=False):
+            gr.Markdown("## 2. Analyze Audio Using Trained Model")
+            with gr.Row():
+                with gr.Column():
+                    suspect_audio_sample = gr.Audio(
+                        label="Suspect Audio Sample", type="filepath"
+                    )
+                    analyze_audio_btn = gr.Button(value="Analyze", variant="primary")
+                with gr.Column():
+                    fakeness_output = gr.Textbox(label="Realness")
+        analyze_audio_btn.click(
+            analyze_audio, inputs=[suspect_audio_sample], outputs=[fakeness_output]
         )
 
+    with gr.Tab(
+        "C. Deep Fake Face Image Detection"
+    ) as deep_fake_face_image_detection_iface:
+        gr.Markdown(
+            "This module is used for detecting video for deep fake using DeepLearning Models."
+        )
+        with gr.Row():
+            with gr.Column():
+                suspect_image_input = gr.Image(
+                    label="Suspect Image Input", type="filepath"
+                )
+                analyze_btn = gr.Button(value="Analyze Image", variant="primary")
+            with gr.Column():
+                fakeness_result = gr.Text(label="Image Fakeness")
+                gr.ClearButton([suspect_image_input, fakeness_result])
+            analyze_btn.click(
+                verify_fake_face,
+                inputs=[suspect_image_input],
+                outputs=[fakeness_result],
+            )
 
-interfaces = [
-    introduction_iface,
-    deep_fake_video_detection_iface,
-    fake_voice_detection_iface,
-    deep_fake_face_image_detection_iface,
-]
-
-tab_names = [
-    "* Introduction",
-    "A. Deep Fake Video Detection",
-    "B. Fake Voice/Speech Detection",
-    "C. Deep Fake Face Image Detection",
-]
-
-demo = gr.TabbedInterface(
-    interfaces,
-    tab_names,
-    title="🎭",
-    css="footer {visibility: hidden}",
-)
 demo.launch(
-    server_name="0.0.0.0", server_port=7860, show_api=False,
+    server_name="0.0.0.0",
+    server_port=7860,
+    show_api=False,
 )
