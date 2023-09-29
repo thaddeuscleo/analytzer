@@ -92,10 +92,13 @@ def create_fakeness_plot(res, faces_real_pred):
     plt.grid(axis="y", linestyle="--", alpha=0.7)
     plt.tight_layout()
 
-    chart_filename = "line_chart.png"
-    plt.savefig(chart_filename)
-    plt.close()
-    return chart_filename
+    fig = plt.gcf()
+    axes = plt.gca()
+    fig.canvas.draw()
+    rgb = fig.canvas.tostring_rgb()
+    width, height = fig.canvas.get_width_height()
+    img = Image.frombytes('RGB', (width, height), rgb)
+    return img
 
 
 # Verify deep fake video
@@ -103,7 +106,7 @@ def verify_deep_fake_video(video):
     res, faces_real_pred = predict_deep_fake_video(video)
     chart_filename = create_fakeness_plot(res, faces_real_pred)
     result = f"Average score for Fakeness video: {expit(faces_real_pred.mean()):.4f}"
-    return result, [chart_filename]
+    return result, chart_filename
 
 
 # Extract audio features
@@ -272,7 +275,7 @@ with gr.Blocks() as deep_fake_video_detection_iface:
             suspect_video_input = gr.Video(label="Suspect Video Input")
             analyze_btn = gr.Button(value="Analyze Video", variant="primary")
         with gr.Group():
-            fakeness_plot = gr.Gallery(label="Fakeness On Frames", interactive=True)
+            fakeness_plot = gr.Image(label="Fakeness On Frames", interactive=True)
             fakeness_result = gr.Text(label="Video Fakeness")
             gr.ClearButton([suspect_video_input, fakeness_result, fakeness_plot])
         analyze_btn.click(
