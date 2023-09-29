@@ -1,6 +1,7 @@
 import gradio as gr
 import io
 import torch
+from PIL import Image
 from torch.utils.model_zoo import load_url
 from scipy.special import expit
 from matplotlib import pyplot as plt
@@ -40,6 +41,9 @@ def load_deep_fake_neural_network(net_model, train_db, device):
 
 
 net = load_deep_fake_neural_network(net_model, train_db, device)
+transf = utils.get_transformer(
+    face_policy, face_size, net.get_normalizer(), train=False
+)
 
 
 # Load face extractor
@@ -99,7 +103,7 @@ def verify_deep_fake_video(video):
     res, faces_real_pred = predict_deep_fake_video(video)
     chart_filename = create_fakeness_plot(res, faces_real_pred)
     result = f"Average score for Fakeness video: {expit(faces_real_pred.mean()):.4f}"
-    return result, chart_filename
+    return result, [chart_filename]
 
 
 # Extract audio features
@@ -227,8 +231,14 @@ def analyze_audio(audio):
 
 
 # Fake face detection
-def verify_fake_face(audio):
-    return ""
+def verify_fake_face(upload_image):
+    image = Image.open(upload_image)
+    ext_faces = face_extractor.process_image(img=image)
+    ext_face = ext_faces["faces"][0]
+    faces_tensor = torch.stack([transf(image=im)["image"] for im in [ext_face]])
+    with torch.no_grad():
+        faces_pred = torch.sigmoid(net(faces_tensor.to(device))).cpu().numpy().flatten()
+    return f"{faces_pred[0]}"
 
 
 with gr.Blocks() as introduction_iface:
@@ -262,7 +272,7 @@ with gr.Blocks() as deep_fake_video_detection_iface:
             suspect_video_input = gr.Video(label="Suspect Video Input")
             analyze_btn = gr.Button(value="Analyze Video", variant="primary")
         with gr.Group():
-            fakeness_plot = gr.Image(label="Fakeness On Frames", interactive=True)
+            fakeness_plot = gr.Gallery(label="Fakeness On Frames", interactive=True)
             fakeness_result = gr.Text(label="Video Fakeness")
             gr.ClearButton([suspect_video_input, fakeness_result, fakeness_plot])
         analyze_btn.click(
@@ -340,14 +350,14 @@ with gr.Blocks() as deep_fake_face_image_detection_iface:
     )
     with gr.Row():
         with gr.Column():
-            suspect_image_input = gr.Image(label="Suspect Image Input")
+            suspect_image_input = gr.Image(label="Suspect Image Input", type="filepath")
             analyze_btn = gr.Button(value="Analyze Image", variant="primary")
         with gr.Column():
             fakeness_result = gr.Text(label="Image Fakeness")
-            gr.ClearButton([suspect_video_input, fakeness_result])
+            gr.ClearButton([suspect_image_input, fakeness_result])
         analyze_btn.click(
-            verify_deep_fake_video,
-            inputs=[suspect_video_input],
+            verify_fake_face,
+            inputs=[suspect_image_input],
             outputs=[fakeness_result],
         )
 
@@ -373,5 +383,5 @@ demo = gr.TabbedInterface(
     css="footer {visibility: hidden}",
 )
 demo.launch(
-    server_name="0.0.0.0", server_port=7860, show_api=False, auth=["admin", "admin"]
+    server_name="0.0.0.0", server_port=7860, show_api=False,
 )
