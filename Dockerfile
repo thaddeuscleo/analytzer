@@ -10,6 +10,6 @@ RUN apt-get update && apt-get install ffmpeg libsm6 libxext6 -y
 
 RUN pip install -r requirements.txt
 
-RUN python download-model.py
+RUN python download.py
 
-ENTRYPOINT [ "python", "main.py" ]
+ENTRYPOINT [ "/bin/sh", "./scripts/start.sh" ]
