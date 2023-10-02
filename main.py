@@ -247,7 +247,7 @@ def verify_fake_face(upload_image):
 with gr.Blocks(css="footer {visibility: hidden}", theme=gr.themes.Default()) as demo:
     gr.Markdown(
         """
-        <img src="http://val.id/wp-content/uploads/2020/07/Logo-valid-small.png" width=200px>
+        <img src="https://val.id/wp-content/uploads/2020/07/Logo-valid-small.png" width=200px>
         """
     )
     gr.Markdown("## Deep Fake Detection")
